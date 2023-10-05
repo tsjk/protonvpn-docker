@@ -145,3 +145,7 @@ logicals.json
 .envrc
 COMMIT_NOTES.md
 build/
+
+### Other
+/\.env
+/docker-compose.yml

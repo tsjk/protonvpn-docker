@@ -4,8 +4,10 @@ FROM debian:bookworm-slim as base
 FROM base
 
 COPY --chown=root:root --chmod=0755 ./protonwire /usr/bin/protonwire
+COPY --chown=root:root --chmod=0755 ./entrypoint.sh /entrypoint.sh
 
-RUN    apt-get update -qq \
+RUN    DEBIAN_FRONTEND=noninteractive apt-get update -qq \
+    && DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -qq --no-install-recommends --yes \
     && DEBIAN_FRONTEND=noninteractive apt-get install -qq --no-install-recommends --yes \
          bind9-host \
          ca-certificates \
@@ -30,6 +32,4 @@ RUN    apt-get update -qq \
     && rm -rf /var/lib/apt/lists/* \
     && ln -s /usr/bin/protonwire /usr/bin/protonvpn
 
-ENTRYPOINT [ "/usr/bin/protonwire" ]
-
-CMD [ "connect", "--service" ]
+CMD [ "/entrypoint.sh" ]

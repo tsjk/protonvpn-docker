@@ -1,0 +1,76 @@
+# From .env:
+# I - Image location, e.g. local/protonwire:latest
+# S - Sources directory (with Dockerfile, natpmp-info-reporter-service.sh, etc)
+# THIS - Runtime location (location of .env, private.key, etc)
+# PROTONVPN_SERVER - ProtonVPN server
+
+services:
+  protonwire:
+    build: "${S}"
+    cap_add:
+    - NET_ADMIN
+    container_name: protonwire
+    environment:
+      DEBUG: "0"
+      KILL_SWITCH: "0"
+      PROTONVPN_SERVER: "${PROTONVPN_SERVER}"
+      TZ: "Etc/UTC"
+    image: "${I}"
+    init: true
+    healthcheck:
+      test: ["CMD", "/bin/bash", "-c", "/usr/bin/protonwire check --container --silent || exit 1"]
+      interval: 120s
+      start_period: 20s
+    network_mode: bridge
+    #ports:
+    #- 127.0.0.1:3000:3000  # Example service to expose to localhost
+    restart: never
+    sysctls:
+    - net.ipv4.conf.all.rp_filter=2
+    - net.ipv6.conf.all.disable_ipv6=1
+    volumes:
+    - type: tmpfs
+      target: /tmp
+    - type: bind
+      source: ${THIS}/private.key
+      target: /etc/protonwire/private-key
+      read_only: true
+
+  protonwire-natpmpc:
+    command:
+    - |
+      __update_natpmp() { { date "+%Y-%m-%d %H:%M:%S"; natpmpc -a 1 0 udp 60 -g 10.2.0.1 && natpmpc -a 1 0 tcp 60 -g 10.2.0.1 || return 1; } 2>&1 | ts "[%Y-%m-%dT%H:%M:%S] |" >> "/log/protonwire-natpmpc.log"; };
+      __trim_log() { [[ $$(wc -l "/log/protonwire-natpmpc.log" | awk -F " " '{ print $$1 }') -lt $$((128 * 1024)) ]] || sed 1,$$(( (128 * 1024) - (96 * 1024) ))d "/log/protonwire-natpmpc.log" | sponge "/log/protonwire-natpmpc.log"; };
+      __socat_server() { [[ ! -f "/natpmp-info-reporter-service.sh" || ! -s "/natpmp-info-reporter-service.sh" ]] || socat TCP-LISTEN:1009,bind=$$(ip -j address show eth0 | jq -r ".[] | .addr_info[].local"),crlf,reuseaddr,fork SYSTEM:"/bin/bash -c /natpmp-info-reporter-service.sh" & };
+      __sleep() { [[ "$${1}" =~ ^[0-9][0-9]*$$ ]] && { local -i T=$$(( $$(date "+%s") + $${1} )); while [[ $$(date "+%s") -lt $${T} ]]; do sleep 1; done; }; }
+      __socat_server; { while true; do __update_natpmp || break; __trim_log; __sleep 45; done; }
+    container_name: protonwire-natpmpc
+    depends_on:
+      protonwire:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    environment:
+      TZ: "Etc/UTC"
+    healthcheck:
+      test:
+       - CMD-SHELL
+       - |
+         [ $$(( $$(date "+%s") - $$(stat -c "%Y" "/log/protonwire-natpmpc.log") )) -lt 120 ] &&
+           tail -n 46 "/log/protonwire-natpmpc.log" | grep -q -E "Public IP address : [0-9]{1,3}(\.[0-9]{1,3}){3}\s*$$" &&
+           tail -n 46 "/log/protonwire-natpmpc.log" | grep -q -E "Mapped public port [1-9][0-9]* protocol UDP to local port 0 liftime 60\s*$$" &&
+           tail -n 46 "/log/protonwire-natpmpc.log" | grep -q -E "Mapped public port [1-9][0-9]* protocol TCP to local port 0 liftime 60\s*$$"
+      interval: 120s
+      start_period: 23s
+    image: "${I}"
+    init: true
+    network_mode: service:protonwire
+    restart: never
+    volumes:
+    - type: bind
+      source: ${S}/natpmp-info-reporter-service.sh
+      target: /natpmp-info-reporter-service.sh
+    - type: bind
+      source: /tmp/protonwire-natpmpc-log
+      target: /log
+
+version: '2.3'

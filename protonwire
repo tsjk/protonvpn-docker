@@ -852,7 +852,7 @@ function protonvpn_fetch_metadata() {
         # Save to a backup file as download can fail or be corrupted
         if [[ $curl_rc == "0" ]]; then
             # Ensure file is json formatted and valid
-            if jq --exit-status '.Nodes' "${__PROTONWIRE_SRV_INFO_FILE}.bak" >/dev/null 2>&1; then
+            if [[ $(jq '.Nodes | length' "${__PROTONWIRE_SRV_INFO_FILE}.bak" 2> /dev/null) -gt 0 ]]; then
                 if mv --force "${__PROTONWIRE_SRV_INFO_FILE}.bak" "${__PROTONWIRE_SRV_INFO_FILE}"; then
                     log_success "Successfully refreshed server metadata"
                 else

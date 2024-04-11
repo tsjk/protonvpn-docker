@@ -29,11 +29,27 @@ __sighup_handler() {
   [[ ${PROTONWIRE_PID} -eq 0 ]] || kill -TERM "${PROTONWIRE_PID}"
 }
 
+__get_server_info() {
+  [[ -n "${PROTONVPN_SERVER}" ]] || return 1
+  local f="/tmp/protonwire.server.json"
+  [[ $(( $(date '+%s') - $(stat -c '%Y' "${f}") )) -gt 3600 || $(jq '.Nodes | length' "${f}.new" 2> /dev/null) -le 0 ]] || return 0
+  local u; local -i T=3 t=0
+  [[ -n "${METADATA_URL}" ]] && u="${METADATA_URL}" || u="https://protonwire-api.vercel.app/v1/server"; u="${u}/${PROTONVPN_SERVER//#/-}"
+  while true; do
+    curl -sSfL -A 'protonwire/v7' -m 30 -o "${f}.new" "${u}"
+    [[ ${?} -ne 0 || $(jq '.Nodes | length' "${f}.new" 2> /dev/null) -le 0 ]] || \
+      { mv --force "${f}.new" "${f}"; return 0; }
+    [[ ${t} -lt ${T} ]] || return 1
+    t+=1; sleep 10
+  done
+}
+
 trap '__sigint_handler' SIGINT
 trap '__sigterm_handler' SIGTERM
 trap '__sighup_handler' SIGHUP
 
 while [[ ${DO_RUN} -ne 0 ]]; do
+  __get_server_info || echo "Failed to get server metadata..." | ts 'entrypoint.sh[%Y-%m-%d %H:%M:.%S]:' >&2
   /usr/bin/protonwire connect --container --log-format long &
   PROTONWIRE_PID=${!}; wait -p PROTONWIRE_EXIT_CODE "${PROTONWIRE_PID}"; PROTONWIRE_PID=0
   if [[ ${DO_RECONNECT} -ne 0 ]]; then

@@ -46,6 +46,8 @@ while [[ ${DO_RUN} -ne 0 ]]; do
     echo "...will try to reconnect in ${RETRY_INTERVAL_IN_SECONDS} seconds." | ts 'entrypoint.sh[%Y-%m-%d %H:%M:.%S]:' >&2
     __sleep ${RETRY_INTERVAL_IN_SECONDS}
   fi
+  [[ ! -e /etc/resolv.conf.protonwire ]] || \
+    { cat /etc/resolv.conf.protonwire > /etc/resolv.conf; rm -f /etc/resolv.conf.protonwire; }
 done
 
 exit ${PROTONWIRE_EXIT_CODE}

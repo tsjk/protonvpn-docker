@@ -34,16 +34,16 @@ trap '__sigterm_handler' SIGTERM
 trap '__sighup_handler' SIGHUP
 
 while [[ ${DO_RUN} -ne 0 ]]; do
-  /usr/bin/protonwire connect --container &
+  /usr/bin/protonwire connect --container --log-format long &
   PROTONWIRE_PID=${!}; wait -p PROTONWIRE_EXIT_CODE "${PROTONWIRE_PID}"; PROTONWIRE_PID=0
   if [[ ${DO_RECONNECT} -ne 0 ]]; then
     DO_RECONNECT=0
-    echo "entrypoint.sh: Received SIGHUP, will try to reconnect in ${RETRY_INTERVAL_IN_SECONDS} seconds..." >&2
+    echo "Received SIGHUP, will try to reconnect in ${RETRY_INTERVAL_IN_SECONDS} seconds." | ts 'entrypoint.sh[%Y-%m-%d %H:%M:.%S]:' >&2
     __sleep ${RETRY_INTERVAL_IN_SECONDS}
   elif [[ ${DO_RUN} -ne 0 ]]; then
-    echo "entrypoint.sh: protonwire script died (with exit code ${PROTONWIRE_EXIT_CODE}) - disconnecting..."
-    /usr/bin/protonwire disconnect --container
-    echo "entrypoint.sh: protonwire script died (with exit code ${PROTONWIRE_EXIT_CODE}) - will try to reconnect in ${RETRY_INTERVAL_IN_SECONDS} seconds..."
+    echo "entrypoint.sh: protonwire script died (with exit code ${PROTONWIRE_EXIT_CODE}) - disconnecting..." | ts 'entrypoint.sh[%Y-%m-%d %H:%M:.%S]:' >&2
+    /usr/bin/protonwire disconnect --container --log-format long
+    echo "...will try to reconnect in ${RETRY_INTERVAL_IN_SECONDS} seconds." | ts 'entrypoint.sh[%Y-%m-%d %H:%M:.%S]:' >&2
     __sleep ${RETRY_INTERVAL_IN_SECONDS}
   fi
 done

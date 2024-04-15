@@ -32,7 +32,7 @@ __sighup_handler() {
 __get_server_info() {
   [[ -n "${PROTONVPN_SERVER}" ]] || return 1
   local f="/tmp/protonwire.server.json"
-  [[ $(( $(date '+%s') - $(stat -c '%Y' "${f}") )) -gt 3600 || $(jq '.Nodes | length' "${f}.new" 2> /dev/null) -le 0 ]] || return 0
+  [[ ! -s "/tmp/protonwire.server.json" || $(( $(date '+%s') - $(stat -c '%Y' "${f}") )) -gt 3600 || $(jq '.Nodes | length' "${f}.new" 2> /dev/null) -le 0 ]] || return 0
   local u; local -i T=3 t=0
   [[ -n "${METADATA_URL}" ]] && u="${METADATA_URL}" || u="https://protonwire-api.vercel.app/v1/server"; u="${u}/${PROTONVPN_SERVER//#/-}"
   while true; do

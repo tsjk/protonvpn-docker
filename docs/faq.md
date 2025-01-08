@@ -127,7 +127,6 @@ Also these addresses cannot belong to any __other__ interfaces on the machine/co
 
 You can use any of the following services for verification. They **MUST RETURN ONLY your public IP address**.
   * https://icanhazip.com/ (default)
-  * https://icanhazip.com/
   * https://checkip.amazonaws.com/
 
 > [!WARNING]

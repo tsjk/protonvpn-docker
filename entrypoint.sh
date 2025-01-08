@@ -34,7 +34,7 @@ __get_server_info() {
   local f="/tmp/protonwire.server.json"
   [[ ! -s "/tmp/protonwire.server.json" || $(( $(date '+%s') - $(stat -c '%Y' "${f}") )) -gt 3600 || $(jq '.Nodes | length' "${f}.new" 2> /dev/null) -le 0 ]] || return 0
   local u; local -i T=3 t=0
-  [[ -n "${METADATA_URL}" ]] && u="${METADATA_URL}" || u="https://protonwire-api.vercel.app/v1/server"; u="${u}/${PROTONVPN_SERVER//#/-}"
+  [[ -n "${METADATA_URL}" ]] && u="${METADATA_URL}" || u="https://icanhazip.com/"; u="${u}/${PROTONVPN_SERVER//#/-}"
   while true; do
     curl -sSfL -A 'protonwire/v7' -m 30 -o "${f}.new" "${u}"
     [[ ${?} -ne 0 || $(jq '.Nodes | length' "${f}.new" 2> /dev/null) -le 0 ]] || \
@@ -50,7 +50,7 @@ trap '__sighup_handler' SIGHUP
 
 while [[ ${DO_RUN} -ne 0 ]]; do
   __get_server_info || echo "Failed to get server metadata..." | ts 'entrypoint.sh[%Y-%m-%d %H:%M:%.S]:' >&2
-  /usr/bin/protonwire connect --container --log-format long &
+  /usr/bin/protonwire connect --service --log-format long &
   PROTONWIRE_PID=${!}; wait -p PROTONWIRE_EXIT_CODE "${PROTONWIRE_PID}"; PROTONWIRE_PID=0
   if [[ ${DO_RECONNECT} -ne 0 ]]; then
     DO_RECONNECT=0
@@ -58,7 +58,7 @@ while [[ ${DO_RUN} -ne 0 ]]; do
     __sleep ${RETRY_INTERVAL_IN_SECONDS}
   elif [[ ${DO_RUN} -ne 0 ]]; then
     echo "entrypoint.sh: protonwire script died (with exit code ${PROTONWIRE_EXIT_CODE}) - disconnecting..." | ts 'entrypoint.sh[%Y-%m-%d %H:%M:%.S]:' >&2
-    /usr/bin/protonwire disconnect --container --log-format long
+    /usr/bin/protonwire disconnect --service --log-format long
     echo "...will try to reconnect in ${RETRY_INTERVAL_IN_SECONDS} seconds." | ts 'entrypoint.sh[%Y-%m-%d %H:%M:%.S]:' >&2
     __sleep ${RETRY_INTERVAL_IN_SECONDS}
   fi
